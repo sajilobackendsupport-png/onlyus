@@ -1,0 +1,8 @@
+{
+  "name": "OnlyUs - Private Couple Messenger",
+  "description": "A private, romantic couple messaging web app with real-time chat, offline queuing, voice messages, photo sharing, and shared diary.",
+  "requestFramePermissions": [
+    "microphone"
+  ],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
