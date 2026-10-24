@@ -9,7 +9,6 @@ import {
   Eye,
   EyeOff,
   Sparkles,
-  KeyRound,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { getAvatarDetails } from '../utils/avatars';
@@ -24,7 +23,6 @@ interface HeaderProps {
   onToggleStealth: () => void;
   onSwitchUser: () => void;
   onOpenIntro?: () => void;
-  onOpenAuth?: () => void;
   unreadCount?: number;
 }
 
@@ -38,7 +36,6 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleStealth,
   onSwitchUser,
   onOpenIntro,
-  onOpenAuth,
 }) => {
   const partnerAvatar = partner ? getAvatarDetails(partner.avatar) : null;
   const isPartnerOnline = partner?.consentShareOnline && partner.isOnline;
@@ -151,17 +148,6 @@ export const Header: React.FC<HeaderProps> = ({
           <span className="hidden sm:inline">I am {currentUser.nickname}</span>
           <span className="sm:hidden">{currentUser.nickname === 'Aalu' ? '🥔' : '🧸'}</span>
         </button>
-
-        {/* Account & Firebase Modal Button */}
-        {onOpenAuth && (
-          <button
-            onClick={onOpenAuth}
-            className="p-2 rounded-xl text-rose-300/80 hover:text-white hover:bg-white/5 transition-colors"
-            title="Account Sign In & Firebase Info"
-          >
-            <KeyRound className="w-4 h-4 text-rose-400" />
-          </button>
-        )}
 
         {/* Search Conversation */}
         <button

@@ -48,6 +48,19 @@ function coupleApiPlugin(): Plugin {
       coupleData.couples = parsed.couples || {};
       coupleData.users = { ...coupleData.users, ...(parsed.users || {}) };
       coupleData.tokens = { ...coupleData.tokens, ...(parsed.tokens || {}) };
+
+      // Ensure every couple room has clean deduplicated messages
+      for (const k of Object.keys(coupleData.couples)) {
+        if (Array.isArray(coupleData.couples[k].messages)) {
+          const seenIds = new Set<string>();
+          coupleData.couples[k].messages = coupleData.couples[k].messages.filter((m: any) => {
+            const id = m.id || m.clientMessageId;
+            if (!id || seenIds.has(id)) return false;
+            seenIds.add(id);
+            return true;
+          });
+        }
+      }
     }
   } catch (e) {
     console.error('Failed to read couple store, initializing default store', e);
@@ -400,6 +413,16 @@ function coupleApiPlugin(): Plugin {
 
             if (Date.now() - couple.typingTimestamp > 4000) {
               couple.typingUser = null;
+            }
+
+            if (Array.isArray(couple.messages)) {
+              const seenMap = new Set<string>();
+              couple.messages = couple.messages.filter((m: any) => {
+                const id = m.id || m.clientMessageId;
+                if (!id || seenMap.has(id)) return false;
+                seenMap.add(id);
+                return true;
+              });
             }
 
             return json({ success: true, couple });

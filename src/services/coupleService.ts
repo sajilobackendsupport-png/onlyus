@@ -11,6 +11,33 @@ export interface AuthUser {
   pairCode: string;
 }
 
+export function deduplicateMessages(messages: Message[]): Message[] {
+  if (!messages || !Array.isArray(messages)) return [];
+  const seenMap = new Map<string, Message>();
+  const idToKey = new Map<string, string>();
+  const clientToKey = new Map<string, string>();
+
+  for (const m of messages) {
+    if (!m) continue;
+    const key = m.id || m.clientMessageId || `msg-${m.createdAt}-${Math.random()}`;
+    const existingKey =
+      (m.id && idToKey.get(m.id)) ||
+      (m.clientMessageId && clientToKey.get(m.clientMessageId));
+
+    if (existingKey && seenMap.has(existingKey)) {
+      const existing = seenMap.get(existingKey)!;
+      if ((existing.status === 'sending' || existing.status === 'offline') && m.status !== 'sending') {
+        seenMap.set(existingKey, { ...existing, ...m });
+      }
+    } else {
+      seenMap.set(key, m);
+      if (m.id) idToKey.set(m.id, key);
+      if (m.clientMessageId) clientToKey.set(m.clientMessageId, key);
+    }
+  }
+  return Array.from(seenMap.values());
+}
+
 class CoupleService {
   private channel: BroadcastChannel | null = null;
   private isProcessingQueue = false;
@@ -216,6 +243,7 @@ class CoupleService {
       });
       const data = await res.json();
       if (data.success && data.couple) {
+        data.couple.messages = deduplicateMessages(data.couple.messages);
         storageService.saveSessionData(data.couple, userId);
         this.broadcastLocal(data.couple);
         return data.couple;
@@ -225,7 +253,10 @@ class CoupleService {
     }
 
     const saved = storageService.getSavedSession();
-    if (saved.session) return saved.session;
+    if (saved.session) {
+      saved.session.messages = deduplicateMessages(saved.session.messages);
+      return saved.session;
+    }
 
     const fallback: CoupleSession = {
       pairCode,
@@ -275,6 +306,7 @@ class CoupleService {
       });
       const data = await res.json();
       if (data.success && data.couple) {
+        data.couple.messages = deduplicateMessages(data.couple.messages);
         storageService.saveSessionData(data.couple, userId);
         this.broadcastLocal(data.couple);
         return { success: true, couple: data.couple };
@@ -296,6 +328,8 @@ class CoupleService {
       );
       const data = await res.json();
       if (data.success && data.couple) {
+        data.couple.messages = deduplicateMessages(data.couple.messages);
+
         // If there are unconfirmed messages from partner, confirm delivery now!
         const unconfirmedIds = data.couple.messages
           .filter((m: Message) => m.senderId !== currentUserId && m.status === 'sent')
@@ -334,7 +368,7 @@ class CoupleService {
 
       await storageService.enqueueOfflineMessage(offlineMsg);
 
-      const updatedMessages = [...currentSession.messages, offlineMsg];
+      const updatedMessages = deduplicateMessages([...currentSession.messages, offlineMsg]);
       const updatedSession: CoupleSession = {
         ...currentSession,
         messages: updatedMessages,
@@ -355,7 +389,7 @@ class CoupleService {
     await storageService.enqueueOfflineMessage(pendingMsg);
 
     // Optimistically update session
-    const optimisticMessages = [...currentSession.messages, pendingMsg];
+    const optimisticMessages = deduplicateMessages([...currentSession.messages, pendingMsg]);
     const optimisticSession: CoupleSession = {
       ...currentSession,
       messages: optimisticMessages,
@@ -374,8 +408,10 @@ class CoupleService {
         await storageService.removeFromOfflineQueue(message.clientMessageId);
 
         const confirmedMsg = data.message;
-        const finalMessages = optimisticMessages.map((m) =>
-          m.clientMessageId === message.clientMessageId ? confirmedMsg : m
+        const finalMessages = deduplicateMessages(
+          optimisticMessages.map((m) =>
+            m.clientMessageId === message.clientMessageId ? confirmedMsg : m
+          )
         );
 
         const finalSession: CoupleSession = {
@@ -401,8 +437,10 @@ class CoupleService {
       };
       await storageService.enqueueOfflineMessage(failedMsg);
 
-      const finalMessages = optimisticMessages.map((m) =>
-        m.clientMessageId === message.clientMessageId ? failedMsg : m
+      const finalMessages = deduplicateMessages(
+        optimisticMessages.map((m) =>
+          m.clientMessageId === message.clientMessageId ? failedMsg : m
+        )
       );
 
       const finalSession: CoupleSession = {

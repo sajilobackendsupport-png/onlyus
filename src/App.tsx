@@ -8,7 +8,7 @@ import {
   AppSettings,
   UserMood,
 } from './types';
-import { coupleService } from './services/coupleService';
+import { coupleService, deduplicateMessages } from './services/coupleService';
 import { storageService } from './services/storage';
 import { soundService } from './services/sound';
 import { Header } from './components/Header';
@@ -21,7 +21,6 @@ import { StealthCalculator } from './components/StealthCalculator';
 import { LockScreen } from './components/LockScreen';
 import { PairingModal } from './components/PairingModal';
 import { SplashIntro } from './components/SplashIntro';
-import { AuthModal } from './components/AuthModal';
 
 export default function App() {
   const [session, setSession] = useState<CoupleSession | null>(null);
@@ -30,7 +29,7 @@ export default function App() {
   const [isOffline, setIsOffline] = useState<boolean>(!storageService.isOnline);
   const [showSearch, setShowSearch] = useState<boolean>(false);
   const [isPairingModalOpen, setIsPairingModalOpen] = useState<boolean>(false);
-  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+
   const [showSplashIntro, setShowSplashIntro] = useState<boolean>(true);
   const [queuedCount, setQueuedCount] = useState<number>(0);
 
@@ -79,11 +78,15 @@ export default function App() {
 
     // Listen to local / broadcast session updates
     const unsubSession = coupleService.onSessionChange((updated) => {
-      setSession(updated);
+      const cleanSession: CoupleSession = {
+        ...updated,
+        messages: deduplicateMessages(updated.messages),
+      };
+      setSession(cleanSession);
 
       // Play chime if new incoming message received from partner
-      if (updated.messages.length > previousMessageCountRef.current) {
-        const latest = updated.messages[updated.messages.length - 1];
+      if (cleanSession.messages.length > previousMessageCountRef.current) {
+        const latest = cleanSession.messages[cleanSession.messages.length - 1];
         if (latest.senderId !== currentUserId) {
           soundService.playReceived(
             settings.soundEnabled,
@@ -93,7 +96,7 @@ export default function App() {
           );
         }
       }
-      previousMessageCountRef.current = updated.messages.length;
+      previousMessageCountRef.current = cleanSession.messages.length;
     });
 
     return () => unsubSession();
@@ -107,9 +110,13 @@ export default function App() {
       if (storageService.isOnline) {
         const synced = await coupleService.syncServer(session.pairCode, currentUserId);
         if (synced) {
-          setSession(synced);
-          if (synced.messages.length > previousMessageCountRef.current) {
-            const latest = synced.messages[synced.messages.length - 1];
+          const cleanSynced: CoupleSession = {
+            ...synced,
+            messages: deduplicateMessages(synced.messages),
+          };
+          setSession(cleanSynced);
+          if (cleanSynced.messages.length > previousMessageCountRef.current) {
+            const latest = cleanSynced.messages[cleanSynced.messages.length - 1];
             if (latest.senderId !== currentUserId) {
               soundService.playReceived(
                 settings.soundEnabled,
@@ -119,7 +126,7 @@ export default function App() {
               );
             }
           }
-          previousMessageCountRef.current = synced.messages.length;
+          previousMessageCountRef.current = cleanSynced.messages.length;
         }
       }
     };
@@ -428,7 +435,6 @@ export default function App() {
         onToggleStealth={() => handleUpdateSettings({ ...settings, isStealthMode: true })}
         onSwitchUser={handleSwitchUser}
         onOpenIntro={() => setShowSplashIntro(true)}
-        onOpenAuth={() => setIsAuthModalOpen(true)}
         unreadCount={unreadCount}
       />
 
@@ -521,17 +527,7 @@ export default function App() {
         onClose={() => setIsPairingModalOpen(false)}
       />
 
-      {/* Account Authentication & Firebase Modal */}
-      <AuthModal
-        isOpen={isAuthModalOpen}
-        onClose={() => setIsAuthModalOpen(false)}
-        onAuthSuccess={(authUser) => {
-          setCurrentUserId(authUser.id);
-          coupleService.syncServer(session.pairCode, authUser.id).then((synced) => {
-            if (synced) setSession(synced);
-          });
-        }}
-      />
+
     </div>
   );
 }

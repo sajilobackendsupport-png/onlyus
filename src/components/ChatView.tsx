@@ -47,16 +47,41 @@ export const ChatView: React.FC<ChatViewProps> = ({
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages.length]);
+  // Strictly deduplicate messages by both clientMessageId and id to prevent any duplicate key errors
+  const uniqueMessages = React.useMemo(() => {
+    const seenMap = new Map<string, Message>();
+    const idToKey = new Map<string, string>();
+    const clientToKey = new Map<string, string>();
+
+    for (const m of messages) {
+      if (!m) continue;
+      const primaryKey = m.id || m.clientMessageId || `msg-${m.createdAt}-${Math.random()}`;
+
+      // Check if we've seen this message by id or clientMessageId
+      const existingKey =
+        (m.id && idToKey.get(m.id)) ||
+        (m.clientMessageId && clientToKey.get(m.clientMessageId));
+
+      if (existingKey && seenMap.has(existingKey)) {
+        const existing = seenMap.get(existingKey)!;
+        // Upgrade if newer has confirmed status
+        if ((existing.status === 'sending' || existing.status === 'offline') && m.status !== 'sending') {
+          seenMap.set(existingKey, { ...existing, ...m });
+        }
+      } else {
+        seenMap.set(primaryKey, m);
+        if (m.id) idToKey.set(m.id, primaryKey);
+        if (m.clientMessageId) clientToKey.set(m.clientMessageId, primaryKey);
+      }
+    }
+    return Array.from(seenMap.values());
+  }, [messages]);
 
   const filteredMessages = searchQuery.trim()
-    ? messages.filter((m) =>
+    ? uniqueMessages.filter((m) =>
         m.text.toLowerCase().includes(searchQuery.toLowerCase())
       )
-    : messages;
+    : uniqueMessages;
 
   const handleReply = (message: Message) => {
     setReplyingTo({
@@ -147,19 +172,24 @@ export const ChatView: React.FC<ChatViewProps> = ({
               </div>
 
               {/* Messages under this date */}
-              {dateMsgs.map((msg) => (
-                <MessageBubble
-                  key={msg.id || msg.clientMessageId}
-                  message={msg}
-                  currentUserId={currentUser.id}
-                  partner={partner}
-                  onReply={handleReply}
-                  onReact={onReact}
-                  onDelete={onDeleteMessage}
-                  onRetry={onRetryMessage}
-                  onOpenImage={(url) => setActivePhotoUrl(url)}
-                />
-              ))}
+              {dateMsgs.map((msg, index) => {
+                const uniqueKey = msg.id
+                  ? `msg-id-${msg.id}`
+                  : (msg.clientMessageId ? `msg-client-${msg.clientMessageId}` : `msg-${msg.createdAt || index}-${index}`);
+                return (
+                  <MessageBubble
+                    key={`${uniqueKey}-${msg.createdAt || index}-${index}`}
+                    message={msg}
+                    currentUserId={currentUser.id}
+                    partner={partner}
+                    onReply={handleReply}
+                    onReact={onReact}
+                    onDelete={onDeleteMessage}
+                    onRetry={onRetryMessage}
+                    onOpenImage={(url) => setActivePhotoUrl(url)}
+                  />
+                );
+              })}
             </div>
           ))
         )}
