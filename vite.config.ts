@@ -41,6 +41,22 @@ function coupleApiPlugin(): Plugin {
     couples: {},
   };
 
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
+  function cleanMessages(messages: any[]): any[] {
+    if (!Array.isArray(messages)) return [];
+    const now = Date.now();
+    const seenIds = new Set<string>();
+    return messages.filter((m: any) => {
+      if (!m) return false;
+      const time = m.createdAt || 0;
+      if (now - time > TWENTY_FOUR_HOURS) return false;
+      const id = m.id || m.clientMessageId;
+      if (!id || seenIds.has(id)) return false;
+      seenIds.add(id);
+      return true;
+    });
+  }
+
   try {
     if (fs.existsSync(STORE_FILE)) {
       const content = fs.readFileSync(STORE_FILE, 'utf-8');
@@ -49,16 +65,10 @@ function coupleApiPlugin(): Plugin {
       coupleData.users = { ...coupleData.users, ...(parsed.users || {}) };
       coupleData.tokens = { ...coupleData.tokens, ...(parsed.tokens || {}) };
 
-      // Ensure every couple room has clean deduplicated messages
+      // Ensure every couple room has clean deduplicated messages within 24h
       for (const k of Object.keys(coupleData.couples)) {
         if (Array.isArray(coupleData.couples[k].messages)) {
-          const seenIds = new Set<string>();
-          coupleData.couples[k].messages = coupleData.couples[k].messages.filter((m: any) => {
-            const id = m.id || m.clientMessageId;
-            if (!id || seenIds.has(id)) return false;
-            seenIds.add(id);
-            return true;
-          });
+          coupleData.couples[k].messages = cleanMessages(coupleData.couples[k].messages);
         }
       }
     }
@@ -416,13 +426,7 @@ function coupleApiPlugin(): Plugin {
             }
 
             if (Array.isArray(couple.messages)) {
-              const seenMap = new Set<string>();
-              couple.messages = couple.messages.filter((m: any) => {
-                const id = m.id || m.clientMessageId;
-                if (!id || seenMap.has(id)) return false;
-                seenMap.add(id);
-                return true;
-              });
+              couple.messages = cleanMessages(couple.messages);
             }
 
             return json({ success: true, couple });
@@ -477,6 +481,7 @@ function coupleApiPlugin(): Plugin {
               createdAt: incomingMsg.createdAt || Date.now(),
             };
 
+            couple.messages = cleanMessages(couple.messages);
             couple.messages.push(savedMsg);
             saveStore();
 

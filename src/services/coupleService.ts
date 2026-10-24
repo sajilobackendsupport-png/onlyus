@@ -13,12 +13,17 @@ export interface AuthUser {
 
 export function deduplicateMessages(messages: Message[]): Message[] {
   if (!messages || !Array.isArray(messages)) return [];
+  const now = Date.now();
+  const TWENTY_FOUR_HOURS = 24 * 60 * 60 * 1000;
   const seenMap = new Map<string, Message>();
   const idToKey = new Map<string, string>();
   const clientToKey = new Map<string, string>();
 
   for (const m of messages) {
     if (!m) continue;
+    const time = m.createdAt || 0;
+    if (now - time > TWENTY_FOUR_HOURS) continue;
+
     const key = m.id || m.clientMessageId || `msg-${m.createdAt}-${Math.random()}`;
     const existingKey =
       (m.id && idToKey.get(m.id)) ||
