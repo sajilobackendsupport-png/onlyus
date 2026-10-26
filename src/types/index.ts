@@ -87,4 +87,10 @@ export interface AppSettings {
   quietHoursStart: string; // e.g. "23:00"
   quietHoursEnd: string; // e.g. "07:00"
   activeTheme: 'obsidian-rose' | 'amethyst-night' | 'velvet-ruby' | 'midnight-bloom';
+  smtpHost?: string;
+  smtpPort?: string;
+  smtpUsername?: string;
+  smtpPassword?: string;
+  smtpSecurity?: 'tls' | 'starttls' | 'ssl';
 }
+

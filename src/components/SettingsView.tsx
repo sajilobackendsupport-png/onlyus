@@ -15,6 +15,7 @@ import {
   Sparkles,
   KeyRound,
   Calculator,
+  Mail,
 } from 'lucide-react';
 import { CoupleSession, UserProfile, AppSettings } from '../types';
 import { AVATAR_OPTIONS, getAvatarDetails } from '../utils/avatars';
@@ -50,6 +51,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [quietStart, setQuietStart] = useState(settings.quietHoursStart || '23:00');
   const [quietEnd, setQuietEnd] = useState(settings.quietHoursEnd || '07:00');
 
+  const [smtpHost, setSmtpHost] = useState(settings.smtpHost || 'smtp.host.com');
+  const [smtpPort, setSmtpPort] = useState(settings.smtpPort || '587');
+  const [smtpUsername, setSmtpUsername] = useState(settings.smtpUsername || '');
+  const [smtpPassword, setSmtpPassword] = useState(settings.smtpPassword || '');
+  const [smtpSecurity, setSmtpSecurity] = useState<'tls' | 'starttls' | 'ssl'>(settings.smtpSecurity || 'starttls');
+
   const [copiedCode, setCopiedCode] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
@@ -76,6 +83,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       quietHoursEnabled: quietHours,
       quietHoursStart: quietStart,
       quietHoursEnd: quietEnd,
+      smtpHost,
+      smtpPort,
+      smtpUsername,
+      smtpPassword,
+      smtpSecurity,
     });
 
     setSavedSuccess(true);
@@ -331,6 +343,78 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* SMTP Email Server Configuration */}
+      <div className="p-5 rounded-3xl bg-[#170c29]/80 border border-purple-800/30 space-y-4">
+        <h3 className="text-xs uppercase tracking-wider text-rose-300/70 font-semibold flex items-center gap-1.5">
+          <Mail className="w-3.5 h-3.5 text-rose-400" />
+          SMTP Email Server Configuration
+        </h3>
+
+        <div className="space-y-3 text-xs">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+            <div className="sm:col-span-2">
+              <label className="block mb-1 text-rose-300 font-medium">SMTP Server Host</label>
+              <input
+                type="text"
+                value={smtpHost}
+                onChange={(e) => setSmtpHost(e.target.value)}
+                placeholder="smtp.host.com"
+                className="w-full bg-black/40 border border-purple-800/40 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-400 font-mono"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-rose-300 font-medium">Port</label>
+              <input
+                type="text"
+                value={smtpPort}
+                onChange={(e) => setSmtpPort(e.target.value)}
+                placeholder="587"
+                className="w-full bg-black/40 border border-purple-800/40 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-400 font-mono text-center"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div>
+              <label className="block mb-1 text-rose-300 font-medium">Account Username</label>
+              <input
+                type="text"
+                value={smtpUsername}
+                onChange={(e) => setSmtpUsername(e.target.value)}
+                placeholder="username"
+                className="w-full bg-black/40 border border-purple-800/40 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-400"
+              />
+            </div>
+            <div>
+              <label className="block mb-1 text-rose-300 font-medium">Account Password</label>
+              <input
+                type="password"
+                value={smtpPassword}
+                onChange={(e) => setSmtpPassword(e.target.value)}
+                placeholder="password"
+                className="w-full bg-black/40 border border-purple-800/40 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-400"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block mb-1 text-rose-300 font-medium">Security Mode</label>
+            <select
+              value={smtpSecurity}
+              onChange={(e) => setSmtpSecurity(e.target.value as any)}
+              className="w-full bg-black/40 border border-purple-800/40 rounded-xl px-3 py-2 text-white focus:outline-none focus:border-rose-400"
+            >
+              <option value="starttls">STARTTLS (Port 587)</option>
+              <option value="tls">TLS (Port 465)</option>
+              <option value="ssl">SSL / Plain</option>
+            </select>
+          </div>
+          <p className="text-[11px] text-rose-300/60">
+            Configure your outgoing SMTP relay credentials for notification emails and love reminders.
+          </p>
         </div>
       </div>
 

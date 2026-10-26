@@ -1,0 +1,77 @@
+{
+  "entities": {
+    "Couple": {
+      "title": "Couple Session",
+      "description": "Represents a couple space with two users and settings",
+      "type": "object",
+      "properties": {
+        "pairCode": { "type": "string", "maxLength": 64 },
+        "createdAt": { "type": "number" },
+        "anniversaryDate": { "type": "string" }
+      },
+      "required": ["pairCode", "createdAt"]
+    },
+    "Message": {
+      "title": "Message",
+      "description": "A message sent between couple participants",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "clientMessageId": { "type": "string", "maxLength": 128 },
+        "senderId": { "type": "string", "maxLength": 128 },
+        "senderNickname": { "type": "string", "maxLength": 64 },
+        "text": { "type": "string", "maxLength": 2048 },
+        "type": { "type": "string" },
+        "createdAt": { "type": "number" },
+        "status": { "type": "string" }
+      },
+      "required": ["clientMessageId", "senderId", "text", "createdAt"]
+    },
+    "Memory": {
+      "title": "Memory",
+      "description": "A shared memory between the couple",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 128 },
+        "date": { "type": "string" },
+        "description": { "type": "string", "maxLength": 1024 },
+        "category": { "type": "string" },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "title", "createdAt"]
+    },
+    "DiaryEntry": {
+      "title": "Diary Entry",
+      "description": "A private or shared diary entry",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "authorId": { "type": "string", "maxLength": 128 },
+        "authorNickname": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 128 },
+        "content": { "type": "string", "maxLength": 4096 },
+        "createdAt": { "type": "number" }
+      },
+      "required": ["id", "authorId", "title", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/couples/{pairCode}": {
+      "schema": { "$ref": "#/entities/Couple" },
+      "description": "Couple documents collection"
+    },
+    "/couples/{pairCode}/messages/{messageId}": {
+      "schema": { "$ref": "#/entities/Message" },
+      "description": "Messages sub-collection"
+    },
+    "/couples/{pairCode}/memories/{memoryId}": {
+      "schema": { "$ref": "#/entities/Memory" },
+      "description": "Memories sub-collection"
+    },
+    "/couples/{pairCode}/diaries/{diaryId}": {
+      "schema": { "$ref": "#/entities/DiaryEntry" },
+      "description": "Diaries sub-collection"
+    }
+  }
+}

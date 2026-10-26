@@ -21,6 +21,7 @@ import { StealthCalculator } from './components/StealthCalculator';
 import { LockScreen } from './components/LockScreen';
 import { PairingModal } from './components/PairingModal';
 import { SplashIntro } from './components/SplashIntro';
+import { CallModal } from './components/CallModal';
 
 export default function App() {
   const [session, setSession] = useState<CoupleSession | null>(null);
@@ -34,6 +35,15 @@ export default function App() {
   const [queuedCount, setQueuedCount] = useState<number>(0);
 
   const [settings, setSettings] = useState<AppSettings>(() => storageService.getAppSettings());
+  const [activeCall, setActiveCall] = useState<{
+    isOpen: boolean;
+    type: 'audio' | 'video';
+    isIncoming: boolean;
+  }>({
+    isOpen: false,
+    type: 'audio',
+    isIncoming: false,
+  });
 
   const previousMessageCountRef = useRef<number>(0);
 
@@ -435,6 +445,7 @@ export default function App() {
         onToggleStealth={() => handleUpdateSettings({ ...settings, isStealthMode: true })}
         onSwitchUser={handleSwitchUser}
         onOpenIntro={() => setShowSplashIntro(true)}
+        onStartCall={(type) => setActiveCall({ isOpen: true, type, isIncoming: false })}
         unreadCount={unreadCount}
       />
 
@@ -527,6 +538,16 @@ export default function App() {
         onClose={() => setIsPairingModalOpen(false)}
       />
 
+      {/* Voice & Video Call Modal */}
+      <CallModal
+        isOpen={activeCall.isOpen}
+        callType={activeCall.type}
+        isIncoming={activeCall.isIncoming}
+        partner={partner}
+        currentUser={currentUser}
+        pairCode={session.pairCode}
+        onEndCall={() => setActiveCall({ ...activeCall, isOpen: false })}
+      />
 
     </div>
   );

@@ -9,6 +9,8 @@ import {
   Eye,
   EyeOff,
   Sparkles,
+  Phone,
+  Video,
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { getAvatarDetails } from '../utils/avatars';
@@ -23,6 +25,7 @@ interface HeaderProps {
   onToggleStealth: () => void;
   onSwitchUser: () => void;
   onOpenIntro?: () => void;
+  onStartCall: (type: 'audio' | 'video') => void;
   unreadCount?: number;
 }
 
@@ -36,6 +39,7 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleStealth,
   onSwitchUser,
   onOpenIntro,
+  onStartCall,
 }) => {
   const partnerAvatar = partner ? getAvatarDetails(partner.avatar) : null;
   const isPartnerOnline = partner?.consentShareOnline && partner.isOnline;
@@ -147,6 +151,24 @@ export const Header: React.FC<HeaderProps> = ({
           <Users className="w-3.5 h-3.5 text-rose-400" />
           <span className="hidden sm:inline">I am {currentUser.nickname}</span>
           <span className="sm:hidden">{currentUser.nickname === 'Aalu' ? '🥔' : '🧸'}</span>
+        </button>
+
+        {/* Voice Call Button */}
+        <button
+          onClick={() => onStartCall('audio')}
+          className="p-2 rounded-xl text-rose-300/80 hover:text-white hover:bg-rose-500/20 transition-colors"
+          title="Start voice call"
+        >
+          <Phone className="w-4 h-4 text-rose-400" />
+        </button>
+
+        {/* Video Call Button */}
+        <button
+          onClick={() => onStartCall('video')}
+          className="p-2 rounded-xl text-rose-300/80 hover:text-white hover:bg-rose-500/20 transition-colors"
+          title="Start video call"
+        >
+          <Video className="w-4 h-4 text-rose-400" />
         </button>
 
         {/* Search Conversation */}

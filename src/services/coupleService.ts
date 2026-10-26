@@ -2,6 +2,8 @@ import { CoupleSession, Message, UserProfile, Memory, DiaryEntry } from '../type
 import { storageService } from './storage';
 import { soundService } from './sound';
 import { notificationService } from './notificationService';
+import { db, handleFirestoreError, OperationType } from './firebase';
+import { doc, getDoc, setDoc, updateDoc, collection, addDoc, onSnapshot } from 'firebase/firestore';
 
 export interface AuthUser {
   id: string;
@@ -169,10 +171,55 @@ class CoupleService {
     this.channel?.postMessage({ type: 'SYNC_SESSION', session });
   }
 
-  // Real-Time Server-Sent Events Push Connection
+  private firestoreUnsub: (() => void) | null = null;
+
+  // Real-Time Server-Sent Events & Firestore Realtime Push Connection
   startEventStream(pairCode: string, currentUserId: string) {
-    if (typeof window === 'undefined' || !('EventSource' in window)) return;
+    if (typeof window === 'undefined') return;
     this.closeEventStream();
+
+    try {
+      // 1. Firestore Real-time onSnapshot sync
+      const messagesColRef = collection(db, 'couples', pairCode, 'messages');
+      const unsubMessages = onSnapshot(
+        messagesColRef,
+        (snapshot) => {
+          const firestoreMessages: Message[] = [];
+          snapshot.forEach((d) => {
+            firestoreMessages.push(d.data() as Message);
+          });
+          if (firestoreMessages.length > 0) {
+            const saved = storageService.getSavedSession();
+            if (saved.session && saved.session.pairCode === pairCode) {
+              const merged = deduplicateMessages([...saved.session.messages, ...firestoreMessages]);
+              const updatedSession: CoupleSession = {
+                ...saved.session,
+                messages: merged,
+              };
+              storageService.saveSessionData(updatedSession, currentUserId);
+              this.notifySession(updatedSession);
+              this.broadcastLocal(updatedSession);
+
+              const latest = merged[merged.length - 1];
+              if (latest && latest.senderId !== currentUserId) {
+                notificationService.notifyNewMessage(latest.senderNickname, latest.text);
+              }
+            }
+          }
+        },
+        (error) => {
+          handleFirestoreError(error, OperationType.GET, `couples/${pairCode}/messages`);
+        }
+      );
+
+      this.firestoreUnsub = () => {
+        unsubMessages();
+      };
+    } catch (e) {
+      console.warn('Failed to start Firestore realtime stream:', e);
+    }
+
+    if (!('EventSource' in window)) return;
 
     try {
       const url = `/api/couple/stream?pairCode=${encodeURIComponent(pairCode)}&userId=${encodeURIComponent(currentUserId)}`;
@@ -182,20 +229,6 @@ class CoupleService {
         try {
           const payload = JSON.parse(event.data);
           if (payload.type === 'NEW_MESSAGE' && payload.message) {
-            const msg: Message = payload.message;
-            if (msg.senderId !== currentUserId) {
-              // Automatically confirm delivery back to sender
-              this.acknowledgeDelivery(pairCode, currentUserId, [msg.id]);
-              // Trigger background/system notification if supported
-              notificationService.notifyNewMessage(msg.senderNickname, msg.text);
-            }
-            this.syncServer(pairCode, currentUserId).then((synced) => {
-              if (synced) {
-                this.notifySession(synced);
-                this.broadcastLocal(synced);
-              }
-            });
-          } else if (payload.type === 'MESSAGES_DELIVERED' || payload.type === 'MESSAGES_READ') {
             this.syncServer(pairCode, currentUserId).then((synced) => {
               if (synced) {
                 this.notifySession(synced);
@@ -205,16 +238,16 @@ class CoupleService {
           }
         } catch {}
       };
-
-      this.eventSource.onerror = () => {
-        // Auto-reconnects natively via EventSource spec
-      };
     } catch (e) {
       console.warn('Failed to start SSE stream:', e);
     }
   }
 
   closeEventStream() {
+    if (this.firestoreUnsub) {
+      this.firestoreUnsub();
+      this.firestoreUnsub = null;
+    }
     if (this.eventSource) {
       this.eventSource.close();
       this.eventSource = null;
@@ -400,6 +433,12 @@ class CoupleService {
       messages: optimisticMessages,
     };
     this.notifySession(optimisticSession);
+
+    try {
+      await setDoc(doc(db, 'couples', pairCode, 'messages', pendingMsg.id || pendingMsg.clientMessageId), pendingMsg, { merge: true });
+    } catch (e) {
+      console.warn('Firestore message write warning:', e);
+    }
 
     try {
       const res = await fetch('/api/couple/message', {

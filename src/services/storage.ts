@@ -204,6 +204,11 @@ class StorageService {
       quietHoursStart: '23:00',
       quietHoursEnd: '07:00',
       activeTheme: 'obsidian-rose',
+      smtpHost: 'smtp.host.com',
+      smtpPort: '587',
+      smtpUsername: '',
+      smtpPassword: '',
+      smtpSecurity: 'starttls',
     };
     try {
       const stored = localStorage.getItem('onlyus_settings');

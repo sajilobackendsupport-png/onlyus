@@ -1,71 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // 1. Default-deny catch-all safety net
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Helper functions
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isParticipant(coupleData) {
-      return isSignedIn() && (
-        coupleData.user1.id == request.auth.uid ||
-        coupleData.user2.id == request.auth.uid
-      );
-    }
-
-    // 2. Private Couple Space: Strictly bounded to the two authorized participants
-    match /couples/{pairCode} {
-      // Only the two registered users can read or update their couple space
-      allow get: if isParticipant(resource.data);
-      allow list: if isSignedIn() && (
-        resource.data.user1.id == request.auth.uid ||
-        resource.data.user2.id == request.auth.uid
-      );
-      
-      // Allow initial couple creation
-      allow create: if isSignedIn() &&
-        request.resource.data.user1.id == request.auth.uid &&
-        request.resource.data.pairCode is string &&
-        request.resource.data.pairCode.size() <= 64;
-
-      // Updating couple status/anniversary
-      allow update: if isParticipant(resource.data);
-
-      // 3. Messages Sub-Collection:
-      match /messages/{messageId} {
-        allow read: if isSignedIn() && isParticipant(get(/databases/$(database)/documents/couples/$(pairCode)).data);
-        
-        // Only sender can write new messages; must match authenticated user
-        allow create: if isSignedIn() &&
-          isParticipant(get(/databases/$(database)/documents/couples/$(pairCode)).data) &&
-          request.resource.data.senderId == request.auth.uid &&
-          request.resource.data.clientMessageId is string &&
-          request.resource.data.clientMessageId.size() <= 128;
-
-        // Updating delivery status, reactions, or read receipts
-        allow update: if isSignedIn() &&
-          isParticipant(get(/databases/$(database)/documents/couples/$(pairCode)).data);
-
-        // Sender can delete own message
-        allow delete: if isSignedIn() &&
-          resource.data.senderId == request.auth.uid;
-      }
-
-      // 4. Shared Memories & Diaries
-      match /memories/{memoryId} {
-        allow read, write: if isSignedIn() &&
-          isParticipant(get(/databases/$(database)/documents/couples/$(pairCode)).data);
-      }
-
-      match /diaries/{diaryId} {
-        allow read, write: if isSignedIn() &&
-          isParticipant(get(/databases/$(database)/documents/couples/$(pairCode)).data);
-      }
+      allow read, write: if true;
     }
   }
 }
