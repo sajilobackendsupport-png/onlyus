@@ -154,6 +154,96 @@ class SoundService {
       // Audio error suppressed
     }
   }
+
+  playDialTone(): () => void {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return () => {};
+
+      let isRunning = true;
+      const playTone = () => {
+        if (!isRunning) return;
+        try {
+          const now = ctx.currentTime;
+          const osc1 = ctx.createOscillator();
+          const osc2 = ctx.createOscillator();
+          const gain = ctx.createGain();
+
+          osc1.type = 'sine';
+          osc2.type = 'sine';
+          osc1.frequency.setValueAtTime(440, now);
+          osc2.frequency.setValueAtTime(480, now);
+
+          gain.gain.setValueAtTime(0.04, now);
+          gain.gain.setValueAtTime(0.04, now + 1.0);
+          gain.gain.exponentialRampToValueAtTime(0.001, now + 1.05);
+
+          osc1.connect(gain);
+          osc2.connect(gain);
+          gain.connect(ctx.destination);
+
+          osc1.start(now);
+          osc2.start(now);
+          osc1.stop(now + 1.05);
+          osc2.stop(now + 1.05);
+        } catch {}
+      };
+
+      playTone();
+      const interval = setInterval(playTone, 3000);
+
+      return () => {
+        isRunning = false;
+        clearInterval(interval);
+      };
+    } catch {
+      return () => {};
+    }
+  }
+
+  playRingtone(): () => void {
+    try {
+      const ctx = this.getContext();
+      if (!ctx) return () => {};
+
+      let isRunning = true;
+      const playRing = () => {
+        if (!isRunning) return;
+        try {
+          const now = ctx.currentTime;
+          for (let i = 0; i < 2; i++) {
+            const startTime = now + i * 0.25;
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(850, startTime);
+            osc.frequency.setValueAtTime(960, startTime + 0.12);
+
+            gain.gain.setValueAtTime(0.08, startTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.2);
+
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+
+            osc.start(startTime);
+            osc.stop(startTime + 0.22);
+          }
+        } catch {}
+      };
+
+      playRing();
+      const interval = setInterval(playRing, 2500);
+
+      return () => {
+        isRunning = false;
+        clearInterval(interval);
+      };
+    } catch {
+      return () => {};
+    }
+  }
 }
 
 export const soundService = new SoundService();
+

@@ -69,16 +69,22 @@ export default function App() {
     };
   }, []);
 
-  // Initialize Session with Karsh, Aalu & Petu defaults
+  // Initialize Session with Karsh, Aalu & Petu defaults and persistent cache
   useEffect(() => {
     const init = async () => {
       const saved = storageService.getSavedSession();
+      const cached = await storageService.getCachedMessages();
       if (saved.session && saved.currentUserId) {
-        setSession(saved.session);
+        const mergedMessages = deduplicateMessages([...(saved.session.messages || []), ...(cached || [])]);
+        const restoredSession = { ...saved.session, messages: mergedMessages };
+        setSession(restoredSession);
         setCurrentUserId(saved.currentUserId);
-        previousMessageCountRef.current = saved.session.messages.length;
+        previousMessageCountRef.current = restoredSession.messages.length;
       } else {
         const defaultCouple = await coupleService.initCouple('KARSH-FOREVER', 'user-1', 'Aalu', '2024-02-14');
+        if (cached && cached.length > 0) {
+          defaultCouple.messages = deduplicateMessages([...defaultCouple.messages, ...cached]);
+        }
         setSession(defaultCouple);
         setCurrentUserId(defaultCouple.user1.id);
         previousMessageCountRef.current = defaultCouple.messages.length;
@@ -293,6 +299,13 @@ export default function App() {
     // Refresh queued count
     const q = await storageService.getOfflineQueue();
     setQueuedCount(q.length);
+  };
+
+  const handleLogMissedCall = (callType: 'audio' | 'video', isIncoming: boolean) => {
+    const text = `Missed ${callType === 'video' ? 'video 📹' : 'voice 📞'} call from ${
+      isIncoming ? partner?.nickname || 'Partner' : currentUser.nickname
+    }`;
+    handleSendMessage(text, 'love_note');
   };
 
   // Typing indicator
@@ -547,6 +560,7 @@ export default function App() {
         currentUser={currentUser}
         pairCode={session.pairCode}
         onEndCall={() => setActiveCall({ ...activeCall, isOpen: false })}
+        onLogMissedCall={handleLogMissedCall}
       />
 
     </div>

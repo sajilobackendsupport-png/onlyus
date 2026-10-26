@@ -266,7 +266,7 @@ class CoupleService {
     } catch {}
   }
 
-  // Initialize or fetch couple
+  // Initialize or fetch couple from Firestore database
   async initCouple(
     pairCode = 'KARSH-FOREVER',
     userId = 'user-aalu',
@@ -274,20 +274,52 @@ class CoupleService {
     anniversaryDate = '2024-02-14'
   ): Promise<CoupleSession> {
     try {
-      const res = await fetch('/api/couple/init', {
-        method: 'POST',
-        headers: this.getAuthHeaders(),
-        body: JSON.stringify({ pairCode, userId, nickname, anniversaryDate }),
-      });
-      const data = await res.json();
-      if (data.success && data.couple) {
-        data.couple.messages = deduplicateMessages(data.couple.messages);
-        storageService.saveSessionData(data.couple, userId);
-        this.broadcastLocal(data.couple);
-        return data.couple;
+      const coupleDocRef = doc(db, 'couples', pairCode);
+      const coupleSnap = await getDoc(coupleDocRef);
+      if (coupleSnap.exists()) {
+        const couple = coupleSnap.data() as CoupleSession;
+        couple.messages = deduplicateMessages(couple.messages || []);
+        storageService.saveSessionData(couple, userId);
+        this.broadcastLocal(couple);
+        return couple;
+      } else {
+        const newCouple: CoupleSession = {
+          pairCode,
+          createdAt: Date.now(),
+          anniversaryDate,
+          user1: {
+            id: userId,
+            nickname,
+            avatar: 'avatar-aalu',
+            statusMessage: 'Forever and always Karsh ❤️',
+            mood: 'in-love',
+            isOnline: true,
+            lastSeen: Date.now(),
+            consentShareOnline: true,
+          },
+          user2: {
+            id: 'user-petu',
+            nickname: 'Petu',
+            avatar: 'avatar-petu',
+            statusMessage: 'Thinking of you my Aalu 💕',
+            mood: 'happy',
+            isOnline: true,
+            lastSeen: Date.now(),
+            consentShareOnline: true,
+          },
+          messages: [],
+          memories: [],
+          diaries: [],
+          typingUser: null,
+          typingTimestamp: 0,
+        };
+        await setDoc(coupleDocRef, newCouple);
+        storageService.saveSessionData(newCouple, userId);
+        this.broadcastLocal(newCouple);
+        return newCouple;
       }
-    } catch {
-      // Offline fallback
+    } catch (e) {
+      console.warn('Firestore initCouple warning:', e);
     }
 
     const saved = storageService.getSavedSession();

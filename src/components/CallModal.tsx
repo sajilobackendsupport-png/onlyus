@@ -13,6 +13,7 @@ import {
 } from 'lucide-react';
 import { UserProfile } from '../types';
 import { webrtcService } from '../services/webrtcService';
+import { soundService } from '../services/sound';
 import { getAvatarDetails } from '../utils/avatars';
 
 interface CallModalProps {
@@ -23,6 +24,7 @@ interface CallModalProps {
   currentUser: UserProfile;
   pairCode: string;
   onEndCall: () => void;
+  onLogMissedCall: (callType: 'audio' | 'video', isIncoming: boolean) => void;
 }
 
 export const CallModal: React.FC<CallModalProps> = ({
@@ -33,6 +35,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   currentUser,
   pairCode,
   onEndCall,
+  onLogMissedCall,
 }) => {
   const [callState, setCallState] = useState<'ringing' | 'connected' | 'ended'>(
     isIncoming ? 'ringing' : 'ringing'
@@ -46,16 +49,36 @@ export const CallModal: React.FC<CallModalProps> = ({
   const localVideoRef = useRef<HTMLVideoElement | null>(null);
   const remoteVideoRef = useRef<HTMLVideoElement | null>(null);
   const timerRef = useRef<any>(null);
+  const hasConnectedRef = useRef<boolean>(false);
 
   const partnerAvatar = partner ? getAvatarDetails(partner.avatar) : null;
 
   useEffect(() => {
+    if (callState === 'connected') {
+      hasConnectedRef.current = true;
+    }
+  }, [callState]);
+
+  useEffect(() => {
     if (!isOpen) {
+      if (!hasConnectedRef.current) {
+        onLogMissedCall(callType, isIncoming);
+      }
+      hasConnectedRef.current = false;
       webrtcService.cleanup();
       setDuration(0);
       setCallState('ringing');
       if (timerRef.current) clearInterval(timerRef.current);
       return;
+    }
+
+    let stopSound: (() => void) | null = null;
+    if (callState === 'ringing') {
+      if (isIncoming) {
+        stopSound = soundService.playRingtone();
+      } else {
+        stopSound = soundService.playDialTone();
+      }
     }
 
     const initCall = async () => {
@@ -71,6 +94,7 @@ export const CallModal: React.FC<CallModalProps> = ({
               remoteVideoRef.current.srcObject = remoteStream;
             }
             if (callState !== 'connected') {
+              if (stopSound) stopSound();
               setCallState('connected');
               startTimer();
             }
@@ -82,6 +106,7 @@ export const CallModal: React.FC<CallModalProps> = ({
 
         if (!isIncoming) {
           setTimeout(() => {
+            if (stopSound) stopSound();
             setCallState('connected');
             startTimer();
           }, 2500);
@@ -95,10 +120,11 @@ export const CallModal: React.FC<CallModalProps> = ({
     initCall();
 
     return () => {
+      if (stopSound) stopSound();
       webrtcService.cleanup();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [isOpen]);
+  }, [isOpen, callState, isIncoming]);
 
   const startTimer = () => {
     if (timerRef.current) clearInterval(timerRef.current);
