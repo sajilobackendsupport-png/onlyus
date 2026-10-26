@@ -14,6 +14,7 @@ import {
 import { UserProfile } from '../types';
 import { webrtcService } from '../services/webrtcService';
 import { soundService } from '../services/sound';
+import { callSignalingService } from '../services/callSignalingService';
 import { getAvatarDetails } from '../utils/avatars';
 
 interface CallModalProps {
@@ -83,6 +84,16 @@ export const CallModal: React.FC<CallModalProps> = ({
 
     const initCall = async () => {
       try {
+        if (!isIncoming) {
+          await callSignalingService.startCall(
+            pairCode,
+            currentUser.id,
+            currentUser.nickname,
+            partner?.id || 'user-2',
+            callType
+          );
+        }
+
         const stream = await webrtcService.startLocalStream(callType === 'video');
         if (localVideoRef.current && callType === 'video') {
           localVideoRef.current.srcObject = stream;
@@ -139,12 +150,14 @@ export const CallModal: React.FC<CallModalProps> = ({
     return `${mins.toString().padStart(2, '0')}:${remaining.toString().padStart(2, '0')}`;
   };
 
-  const handleAccept = () => {
+  const handleAccept = async () => {
+    await callSignalingService.updateCallStatus(pairCode, 'accepted');
     setCallState('connected');
     startTimer();
   };
 
-  const handleHangup = () => {
+  const handleHangup = async () => {
+    await callSignalingService.endCall(pairCode);
     webrtcService.cleanup();
     setCallState('ended');
     onEndCall();

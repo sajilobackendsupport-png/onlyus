@@ -22,6 +22,7 @@ import { LockScreen } from './components/LockScreen';
 import { PairingModal } from './components/PairingModal';
 import { SplashIntro } from './components/SplashIntro';
 import { CallModal } from './components/CallModal';
+import { callSignalingService } from './services/callSignalingService';
 
 export default function App() {
   const [session, setSession] = useState<CoupleSession | null>(null);
@@ -158,6 +159,25 @@ export default function App() {
     }
     return () => {
       coupleService.closeEventStream();
+    };
+  }, [session?.pairCode, currentUserId]);
+
+  // Listen to cross-device call signaling in real time
+  useEffect(() => {
+    if (!session?.pairCode || !currentUserId) return;
+
+    callSignalingService.listenToCalls(session.pairCode, currentUserId, (callState) => {
+      if (!callState) return;
+
+      if (callState.recipientId === currentUserId && callState.status === 'ringing') {
+        setActiveCall({ isOpen: true, type: callState.type, isIncoming: true });
+      } else if (callState.status === 'ended' || callState.status === 'declined') {
+        setActiveCall((prev) => (prev.isOpen ? { ...prev, isOpen: false } : prev));
+      }
+    });
+
+    return () => {
+      callSignalingService.stopListening();
     };
   }, [session?.pairCode, currentUserId]);
 
