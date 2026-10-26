@@ -23,6 +23,7 @@ interface CallModalProps {
   isIncoming: boolean;
   partner: UserProfile | null;
   currentUser: UserProfile;
+  recipientId: string;
   pairCode: string;
   onEndCall: () => void;
   onLogMissedCall: (callType: 'audio' | 'video', isIncoming: boolean) => void;
@@ -34,6 +35,7 @@ export const CallModal: React.FC<CallModalProps> = ({
   isIncoming,
   partner,
   currentUser,
+  recipientId,
   pairCode,
   onEndCall,
   onLogMissedCall,
@@ -89,7 +91,7 @@ export const CallModal: React.FC<CallModalProps> = ({
             pairCode,
             currentUser.id,
             currentUser.nickname,
-            partner?.id || 'user-2',
+            recipientId,
             callType
           );
         }

@@ -578,6 +578,7 @@ export default function App() {
         isIncoming={activeCall.isIncoming}
         partner={partner}
         currentUser={currentUser}
+        recipientId={isUser1 ? (session.user2?.id || 'user-petu') : (session.user1?.id || 'user-aalu')}
         pairCode={session.pairCode}
         onEndCall={() => setActiveCall({ ...activeCall, isOpen: false })}
         onLogMissedCall={handleLogMissedCall}
